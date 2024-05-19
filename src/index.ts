@@ -18,10 +18,19 @@ checkEnvs();
 
 const app: Express = express();
 
-app.use(cors({ credentials: true, origin: 'http://localhost:3000' }));
+const cors_origins = [
+  'http://localhost:3000'
+]
+if (process.env.PRODUCTION_CORS_ENDPOINT) {
+  cors_origins.push(process.env.PRODUCTION_CORS_ENDPOINT)
+}
+app.use(cors({ credentials: true, origin: cors_origins }));
 
-const accessLogStream = fs.createWriteStream(path.join(__dirname, 'auther.log'), { flags: 'a' });
-app.use(morgan('combined', { stream: accessLogStream }));
+fs.mkdir(`${__dirname}/log`, { recursive: true }, (err) => {
+  if (err) throw err;
+});
+const accessLogStream = fs.createWriteStream(path.join(__dirname, "log", 'auther.log'), { flags: 'a' });
+app.use(morgan('common', { stream: accessLogStream }));
 
 function errorHandler(err: Error, req: Request, res: Response, next: NextFunction) {
   console.error(err.stack);
@@ -46,7 +55,7 @@ app.use(
     cookie: {
       secure: process.env.NODE_ENV! === "production", // if true only transmit cookie over https
       httpOnly: process.env.NODE_ENV! === "production", // if true prevent client side JS from reading the cookie 
-      maxAge: 1000 * 60 * 60 * Number(process.env.SESSION_MAX_AGE_IN_HOURS)
+      maxAge: 1000 * 60 * 60 * Number(process.env.SESSION_MAX_AGE_IN_HOURS),
     }
   })
 );
@@ -59,6 +68,7 @@ app.use('/modelServer', createProxyMiddleware({
     [`^/modelServer`]: '',
   },
   onProxyReq: (proxyReq, req) => {
+    console.log(req.session.jwtToken)
     // Add JWT token to the Authorization header as a Bearer token
     const jwtToken = req.session.jwtToken;
     if (jwtToken) {
@@ -113,6 +123,7 @@ app.get("/health", (req, res, next) => {
 app.get("/auth", (req, res, next) => {
   try {
     const token = req.session.jwtToken;
+    console.log(req.session)
     if (token) {
       try {
         const userPayload = jwtHandler.verify(token);
