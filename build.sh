@@ -17,4 +17,4 @@ while getopts "t:" opt; do
 done
 shift $((OPTIND -1))
 
-docker build . -t pillcounter-auther:$tag
+docker build . -t pillcounter-auther:$tag --platform=linux/amd64
